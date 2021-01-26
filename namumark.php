@@ -1,6 +1,7 @@
 <?php
 //include 'config.php';
 // 745행 인근 https://attachment.namu.wiki/ 수정필요
+
 /**
  * namumark.php - Namu Mark Renderer
  * Copyright (C) 2015 koreapyj koreapyj0@gmail.com
@@ -832,17 +833,27 @@ class NamuMark {
             if(self::startsWithi($text, '#!html')) {
 				// HTML
                 return '<html>' . preg_replace('/UNIQ--.*?--QINU/', '', substr($text, 7)) . '</html>';
-            } elseif(self::startsWithi($text, '#!wiki') && preg_match('/([^\n]*)\n(((((.*)(\n)?)+)))/', substr($text, 7), $match)) {
-				// 심화문법
-                return '<div '.$match[1].'>'.$match[2].'</div>';
+            } elseif(self::startsWithi($text, '#!wiki') && preg_match('/^([^=]+)=(?|"(.*?)"|\'(.*)\'|(.*))/', substr($text, 7), $match)) {
+				// + 심화문법
+				// BUG: 스타일 적용 시 따옴표가 이중으로 들어가는 현상 있음.
+				$text = str_replace($match[0], '', substr($text,7));
+				$lines = explode("\n", $text);
+                $text = '';
+				foreach($lines as $line) {
+                    if($line !== '')
+                        $text .= $line . "\n";
+                }
+				if(self::startsWith($text, '||')) {
+                    $offset = 0;
+                    $text = $this->tableParser($text, $offset);
+				}
+
+                return '<div class="_renderP" '.$match[0].'>'.$this->formatParser($text).'</div>';
             } elseif(self::startsWithi($text, '#!syntax') && preg_match('/#!syntax ([^\s]*)/', $text, $match)) {
 				// 구문
                 return '<syntaxhighlight lang="' . $match[1] . '" line="1">' . preg_replace('/#!syntax ([^\s]*)/', '', $text) . '</syntaxhighlight>';
             } elseif(preg_match('/^\+([1-5])(.*)$/sm', $text, $size)) {
 				// {{{+큰글씨}}}
-				$big_before .= '<span class="_text-size-up-'.$size[1].'">';
-				$big_after .= '</span>';
-                
 
                 $lines = explode("\n", $size[2]);
                 $size[2] = '';
@@ -856,11 +867,9 @@ class NamuMark {
                     $size[2] = $this->tableParser($size[2], $offset);
                 }
 
-                return $big_before.$this->formatParser($size[2]).$big_after;
+                return '<span class="_text-size-up-'.$size[1].'">'.$this->formatParser($size[2]).'</span>';
             } elseif(preg_match('/^\-([1-5])(.*)$/sm', $text, $size)) {
 				// {{{-작은글씨}}}
-                $small_before = '<span class="_text-size-dn-'.$size[1].'">';
-                $small_after = '</span>';
 
                 $lines = explode("\n", $size[2]);
                 $size[2] = '';
@@ -874,7 +883,7 @@ class NamuMark {
                     $size[2] = $this->tableParser($size[2], $offset);
                 }
 
-                return $small_before . $this->formatParser($size[2]) . $small_after;
+                return '<span class="_text-size-dn-'.$size[1].'">' . $this->formatParser($size[2]) . '</span>';
             } else {
 				return '<pre class="_nowiki">' . $text . '</pre>';
 				// 문법 이스케이프
@@ -1105,11 +1114,24 @@ class NamuMark {
 				elseif (self::startsWithi($text, '#!syntax') && preg_match('/#!syntax ([^\s]*)/', $text, $match)) {
                     return '<syntaxhighlight lang="'.$match[1].'" line="1">'.preg_replace('/#!syntax ([^\s]*)/', '', $text).'</syntaxhighlight>';
 				} 
-				elseif(self::startsWithi($text, '#!wiki') &&  preg_match('/(.*)=(\"|\')(.*)(\"|\')/', substr($text, 7), $match)) {
-					// 심화문법
-					return '<div '.$match[3].'>'.$match[5].'</div>';
+				elseif(self::startsWithi($text, '#!wiki') && preg_match('/^([^=]+)=(?|"(.*?)"|\'(.*)\'|(.*))/', substr($text, 7), $match)) {
+				// + 심화문법
+				$text = str_replace($match[0], '', substr($text,7));
+				$lines = explode("\n", $text);
+                $text = '';
+				foreach($lines as $line) {
+                    if($line !== '')
+                        $text .= $line . "\n";
+                }
+				if(self::startsWith($text, '||')) {
+                    $offset = 0;
+                    $text = $this->tableParser($text, $offset);
 				}
-				 elseif (preg_match('/^#(?:([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})|([A-Za-z]+)) (.*)$/', $text, $color)) {
+				
+
+                return '<div class="_renderP" '.$match[0].'>'.$this->formatParser($text).'</div>';
+				}
+				elseif (preg_match('/^#(?:([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})|([A-Za-z]+)) (.*)$/', $text, $color)) {
 					// {{{#글씨색}}}
                     if (empty($color[1]) && empty($color[2])) {
                         return $text;
@@ -1220,8 +1242,10 @@ class NamuMark {
 			$matched = false;
 			foreach($this->h_tag as $tag_ar) {
 				// 목차 생성을 위한 목차문법 추출
-				$tag = $tag_ar[0];
-				$level = $tag_ar[1];
+                if (is_array($tag_ar)) {
+                    $tag = $tag_ar[0];
+                    $level = $tag_ar[1];
+                }
 				if(!empty($tag) && preg_match($tag, $line, $match)) {
 					$this->tocInsert($this->toc, $this->blockParser($match[1]), $level);
 					$matched = true;
