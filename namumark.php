@@ -19,14 +19,16 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * 
- * ::::::::::: ORIGINAL CODE: koreapyj, 김동동(1st edited) ::::::::::::::
- * ::::::::::: 2nd Edited by PRASEOD- :::::::::::::::
+ * :::::::::::: ORIGINAL CODE: koreapyj, 김동동(1st edited) ::::::::::::
+ * :::::::::::::::::::::: 2nd Edited by PRASEOD- ::::::::::::::::::::::
  * 코드 설명 주석 추가: PRASEOD-
  * 
  * ::::::::: 변경 사항 ::::::::::
  * 커스텀 영상 문법 추가 [video(url)]
  * 목차 문법 미작동 문제 수정
  * 일부 태그 속성 수정
+ * {{{#!wiki }}} 문법 오류 수정
+ * anchor 문법 추가
  */
 
 class PlainWikiPage {
@@ -81,12 +83,12 @@ class NamuMark {
 			);
 
 		$this->h_tag = array(
-			array('/^====== (.*) ======/', 6),
-			array('/^===== (.*) =====/', 5),
-			array('/^==== (.*) ====/', 4),
-			array('/^=== (.*) ===/', 3),
-			array('/^== (.*) ==/', 2),
-			array('/^= (.*) =/', 1),
+			array('/^======(.*)======/', 6),
+			array('/^=====(.*)=====/', 5),
+			array('/^====(.*)====/', 4),
+			array('/^===(.*)===/', 3),
+			array('/^==(.*)==/', 2),
+			array('/^=(.*)=/', 1),
 
 			null
 			);
@@ -216,7 +218,8 @@ class NamuMark {
 		$line = '';
 
 		// 리다이렉트 문법
-		if(self::startsWith($text, '#') && preg_match('/^#(?:redirect|넘겨주기) (.+)$/im', $text, $target)) {
+		// + noredirect 값이 1일 경우 리다이렉트 하지 않음
+		if(self::startsWith($text, '#') && preg_match('/^#(?:redirect|넘겨주기) (.+)$/im', $text, $target) && $_GET['noredirect'] !== 1) {
 			array_push($this->links, array('target'=>$target[1], 'type'=>'redirect'));
 			@header('Location: '.$this->prefix.'/'.self::encodeURI($target[1]));
 			return;
@@ -836,6 +839,27 @@ class NamuMark {
             } elseif(self::startsWithi($text, '#!wiki') && preg_match('/^([^=]+)=(?|"(.*?)"|\'(.*)\'|(.*))/', substr($text, 7), $match)) {
 				// + 심화문법
 				// BUG: 스타일 적용 시 따옴표가 이중으로 들어가는 현상 있음.
+				/*
+				{{{#!wiki style="word-break: keep-all"
+텍스트의 색상을 [[헥스 코드]][* # 뒤에 붙는 여섯자리 숫자로 색상을 나타낸 것. 숫자는 두 자리씩 끊어서 각각 'Red', 'Green', 'Blue'의 강도를 256(=16^^2^^)단계에 걸쳐 나타낸 것이며, 16진수로 표현되어 00(=0,,10,,)일 때 가장 어둡고 FF(=255,,10,,)일 때 가장 밝습니다. 중간값은 80(=128,,10,,)입니다.]나 [[헥스 코드#s-5.1|CSS 색상명]][* # 뒤에 이미 정의된 색상명을 그대로 입력하는 방식을 말합니다. 해당 링크 참조.]을 입력하여 조절할 수 있습니다. 색상코드표는 [[헥스 코드]] 문서 또는 [[https://html-color-codes.info/Korean|이 사이트]]를 참고하세요. 
+||<rowbgcolor=#00a495><rowcolor=#fff> 유형 || 입력 || 출력 ||<width=40%> 비고 ||
+||<|7> 기본 예시 || {{{#!wiki style="min-width:400px"
+{{{{{{#ff0000 텍스트}}}}}}}}} ||<|3> {{{#ff0000 텍스트}}} ||<|7>{{{#!wiki style="min-width:300px"
+헥스 코드와 CSS 색상명 모두 대소문자 구별없이 입력 가능합니다.[br][br]예시와 같이 일부 색상의 경우 세 자리만 입력하는 축약형 헥스코드[* 'Red', 'Green', 'Blue'의 강도를 256단계 대신 16단계로만 표현한 방식입니다. 0일때 가장 어둡고 F(=15,,10,,)일 때 가장 밝습니다.]를 사용할 수도 있습니다.[br][br]투명도 요소가 추가된 #transparent, #RRGGBBAA 색상은 지원하지 않습니다.}}}||
+|| {{{{{{#f00 텍스트}}}}}} ||
+|| {{{{{{#red 텍스트}}}}}} ||
+|| {{{{{{#800080 text}}}}}} ||<|3> {{{#808 text}}} ||
+|| {{{{{{#808 text}}}}}} ||
+|| {{{{{{#purple text}}}}}} ||
+|| {{{{{{#00a495 나무위키색}}}}}}[* 축약형 헥스 코드 또는 CSS 색상명으로 나타낼 수 없는 색상입니다. 6자리 코드를 써야만 표현할 수 있습니다.] || {{{#00a495 나무위키색}}} ||
+||<|2> [[다크 테마]]용 색상 별도 지정 || {{{{{{#888,#ff0 다크테스트}}}}}} ||<|2> {{{#888,#ff0 다크테스트}}} ||<|2>첫 번째 색상은 라이트 테마, 두 번째 색상은 다크 테마에서 적용됩니다. 확인을 위해 다크 테마와 라이트 테마를 전환해보세요.[br][br]두 색상코드 끼리는 쉼표를 사이에 두고 붙여써야만 합니다. 쉼표 뒤에 공백을 넣을 경우 정상 출력이 되지 않습니다.[br][br]색상 문법이 적용되지 않은 일반 텍스트는 라이트 모드에서 #373a3c(검정색), 다크 모드에서 #dddddd(옅은 회색) 색상이 자동으로 적용됩니다. ||
+|| {{{{{{#grey,#yellow 다크테스트}}}}}} ||
+||<|2> 밑줄 서식과 중첩 || {{{{{{#red __밑줄 포함__}}}}}} || {{{#red __밑줄 포함__}}} ||<|2>색상 문법과 밑줄 문법의 순서에 따라 밑줄에 색상 지정 여부가 다릅니다. ||
+|| {{{__{{{#red 밑줄 제외}}}__}}} || __{{{#red 밑줄 제외}}}__ ||
+||<|2> 크기 서식과 중첩 || {{{{{{+1 {{{#blue 큰글자파랑}}} }}}}}} ||<|2> {{{+1 {{{#blue 큰글자파랑}}} }}} ||<|2>밑줄과 달리 크기 서식을 색상과 결합할 경우 문법의 순서가 출력에 영향을 미치지 않습니다.[br][br]닫는 괄호 '\}}}'끼리는 띄어쓰든 붙여쓰든 상관이 없습니다. ||
+|| {{{{{{#blue {{{+1 큰글자파랑}}}}}}}}} ||
+}}}
+				*/
 				$text = str_replace($match[0], '', substr($text,7));
 				$lines = explode("\n", $text);
                 $text = '';
@@ -1049,6 +1073,10 @@ class NamuMark {
 					}
 					return '<iframe width="'.(!empty($var['width'])?$var['width']:'640').'" height="'.(!empty($var['height'])?$var['height']:'360').'" src="'.$include[0].'" frameborder="0" allowfullscreen></iframe>';
 				}
+				elseif(self::startsWith($text, 'anchor') && preg_match('/^anchor\((.*)\)$/', $text, $include)) {
+					// + 앵커 [anchor(name)]
+					return '<span pressdo-anchor id="'.$include[1].'"></span>';
+				}
 				elseif(self::startsWith($text, '*') && preg_match('/^\*([^ ]*)([ ].+)?$/', $text, $note)) {
 					// 각주
 					$notetext = !empty($note[2])?$this->blockParser($note[2]):'';
@@ -1123,12 +1151,11 @@ class NamuMark {
                     if($line !== '')
                         $text .= $line . "\n";
                 }
-				if(self::startsWith($text, '||')) {
+				if(self::startsWith($text, '||') || strpos($text, '||') !== false) {
                     $offset = 0;
                     $text = $this->tableParser($text, $offset);
 				}
 				
-
                 return '<div class="_renderP" '.$match[0].'>'.$this->formatParser($text).'</div>';
 				}
 				elseif (preg_match('/^#(?:([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})|([A-Za-z]+)) (.*)$/', $text, $color)) {
@@ -1210,7 +1237,7 @@ class NamuMark {
 				$result .= '<a id="fn-'.htmlspecialchars($fn['id']).'" href="#rfn-'.$fn['id'].'">['.$fn['id'].']</a> ';
 			}
 			$result .= $this->blockParser($fn['text'])
-								.($this->wapRender?'</p>':'</span>');
+								.($this->wapRender?'</p>':'</span><br>');
 		}
 		$result .= $this->wapRender?'':'</ol>';
 		$this->fn = array();
@@ -1223,7 +1250,6 @@ class NamuMark {
 			$arr[0] = array('name' => $text, 'level' => $level, 'childNodes' => array());
 			return $path.'1';
 		}
-
 		$last = count($arr)-1;
 		$readableId = $last+1;
 		if($arr[0]['level'] >= $level) {
@@ -1277,10 +1303,12 @@ class NamuMark {
 		if(empty($arr[0]))
 			return '';
 
+		// + anchor 문법 관련 수정
 		$result  = '<div class="_toc_ln">';
 		foreach($arr as $i => $item) {
 			$readableId = $i+1;
-			$result .= '<div><a href="#s-'.$path.$readableId.'">'.$path.$readableId.'</a>. '.$item['name'].'</div>'
+			$result .= '<div><a href="#s-'.$path.$readableId.'">'.$path.$readableId.'</a>. '
+							.preg_replace('/<span pressdo-anchor id="(.*)"><\/span>/', '', $item['name']).'</div>'
 							.$this->printToc($item['childNodes'], $level+1, $path.$readableId.'.')
 							.'';
 		}
